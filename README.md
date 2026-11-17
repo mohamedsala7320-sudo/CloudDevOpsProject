@@ -9,7 +9,7 @@ A microservices web application (registration, login and a DevOps roadmap page) 
 - [x] 2. Containerization with Docker Compose
 - [ ] 3. Infrastructure provisioning with Terraform
 - [ ] 4. Configuration management with Ansible
-- [ ] 5. Container orchestration with Kubernetes
+- [x] 5. Container orchestration with Kubernetes
 - [ ] 6. Continuous integration with Jenkins
 - [ ] 7. Continuous deployment with ArgoCD
 - [ ] 8. Documentation
@@ -110,9 +110,86 @@ User data lives in the `mysql-data` volume and survives `docker compose down`.
 | Decision | Reason |
 |---|---|
 | gunicorn instead of the Flask development server | The development server is not meant for production |
+
 | Non-root user in every image | Limits the impact of a container compromise |
 | Multi-stage build for the Java service | The final image has only a JRE and the jar, so it is smaller and has fewer vulnerabilities |
 | `.dockerignore` for each service | Faster builds and no local files copied into images |
 | Two networks (`app-net`, `db-net`) | The frontend cannot reach the database directly |
 | Healthchecks with `depends_on: service_healthy` | Services start in the right order |
-| Secrets in `.env` with `:?` checks | Compose stops early with a clear message if a variable is missing |
+| Secrets in G`.env` with `:?` checks | Compose stops early with a clear message if a variable is missing |
+
+
+## Part 5: Container orchestration with Kubernetes
+
+The application runs on Kubernetes in the `ivolve` namespace. It was first tested on a local kubeadm cluster (1 control plane + 2 workers) before moving to EKS.
+
+### Manifests
+
+| File | Purpose |
+|---|---|
+| `k8s/base/00-namespace.yaml` | `ivolve` namespace |
+| `k8s/base/01-configmap.yaml` | Non-secret environment variables |
+| `k8s/base/02-secret.yaml` | Passwords and session secret |
+| `k8s/base/03-mysql-service.yaml` | Headless Service for the database |
+| `k8s/base/04-mysql-statefulset.yaml` | MySQL StatefulSet with a PVC per pod |
+| `k8s/base/05-auth-service.yaml` | Deployment (2 replicas) + Service |
+| `k8s/base/06-roadmap-service.yaml` | Deployment (2 replicas) + Service |
+| `k8s/base/07-frontend.yaml` | Deployment (2 replicas) + Service |
+| `k8s/base/08-ingress.yaml` | Ingress for the frontend |
+| `k8s/storage/vms-local-path.yaml` | StorageClass `ivolve-mysql-sc` for the local cluster |
+| `k8s/ingress/traefik-values-vms.yaml` | Helm values for the Traefik ingress controller |
+
+### Design decisions
+
+| Decision | Reason |
+|---|---|
+| StatefulSet + headless Service for MySQL | Stable pod name (`mysql-0.mysql`) and its own volume |
+| StorageClass `ivolve-mysql-sc` with `Retain` | Data is kept if the claim is deleted. The same name will be backed by EBS gp3 on EKS |
+| Explicit env variables per service | Each service only receives the keys it needs |
+| Readiness on `/health` (auth), `/api/roadmap` (roadmap), `/` (frontend) | Traffic only reaches ready pods |
+| Liveness on TCP only | A database outage does not restart the auth pods |
+| Resource requests and limits, no privilege escalation, all capabilities dropped | Safer and predictable scheduling |
+| Traefik instead of ingress-nginx | The community ingress-nginx controller was retired in March 2026 |
+| Sticky-session cookie (`ivolve_affinity`) on the frontend Service | The frontend keeps sessions in memory, so each user must stay on the same pod when running 2 replicas |
+| Secret committed with lab-only values | Needed for GitOps. Production should use Sealed Secrets or External Secrets |
+
+### Deploy on the local cluster
+
+```bash
+kubectl apply -f k8s/storage/vms-local-path.yaml
+helm repo add traefik https://traefik.github.io/charts && helm repo update
+helm upgrade --install traefik traefik/traefik -n traefik --create-namespace -f k8s/ingress/traefik-values-vms.yaml
+kubectl apply -f k8s/base/
+kubectl get pods,svc,ingress -n ivolve
+```
+
+The application is available on `http://<node-ip>:30080`.
+
+### Evidence
+
+Cluster nodes and Docker Hub images:
+
+![Nodes](docs/screenshots/07-k8s-cluster-nodes.png)
+![Docker Hub](docs/screenshots/08-dockerhub-images.png)
+
+Namespace, ConfigMap and Secret:
+
+![Config](docs/screenshots/09-k8s-namespace-config.png)
+
+MySQL StatefulSet, DNS and data persistence after deleting the pod:
+
+![StatefulSet](docs/screenshots/10-mysql-statefulset.png)
+![DNS and database](docs/screenshots/11-mysql-dns-and-database.png)
+![Persistence](docs/screenshots/12-mysql-data-persistence.png)
+
+Deployments, Services and the running application:
+
+![Deployments](docs/screenshots/13-k8s-deployments-services.png)
+![Roadmap page](docs/screenshots/14-k8s-app-roadmap-page.png)
+
+Ingress with Traefik, two frontend replicas and the sticky cookie:
+
+![Traefik](docs/screenshots/15-traefik-installed.png)
+![Ingress](docs/screenshots/16-app-via-ingress.png)
+![Two replicas](docs/screenshots/17-frontend-2-replicas.png)
+![Sticky cookie](docs/screenshots/18-sticky-cookie.png)
