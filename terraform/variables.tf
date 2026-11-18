@@ -22,3 +22,16 @@ variable "private_subnet_cidrs" {
   type    = list(string)
   default = ["10.0.11.0/24", "10.0.12.0/24"]
 }
+variable "admin_cidr" {
+  type = string
+}
+
+variable "public_key_path" {
+  type    = string
+  default = "~/.ssh/clouddevops-key.pub"
+}
+
+variable "jenkins_instance_type" {
+  type    = string
+  default = "c7i-flex.large"
+}
