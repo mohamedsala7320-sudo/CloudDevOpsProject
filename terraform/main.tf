@@ -17,3 +17,21 @@ module "jenkins_server" {
   admin_cidr      = var.admin_cidr
   public_key_path = var.public_key_path
 }
+module "ecr" {
+  source = "./modules/ecr"
+
+  repository_names = [
+    "ivolve-auth-service",
+    "ivolve-roadmap-service",
+    "ivolve-frontend",
+  ]
+}
+
+module "eks" {
+  source = "./modules/eks"
+
+  cluster_name       = var.cluster_name
+  subnet_ids         = concat(module.network.public_subnet_ids, module.network.private_subnet_ids)
+  node_subnet_ids    = module.network.private_subnet_ids
+  node_instance_type = var.eks_node_instance_type
+}

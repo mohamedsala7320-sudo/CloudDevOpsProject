@@ -35,3 +35,7 @@ variable "jenkins_instance_type" {
   type    = string
   default = "c7i-flex.large"
 }
+variable "eks_node_instance_type" {
+  type    = string
+  default = "c7i-flex.large"
+}
