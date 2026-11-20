@@ -21,7 +21,7 @@ def call(Map cfg) {
 
             stage('Scan Image') {
                 steps {
-                    // غيّر exit-code لـ 1 لو عايز الـ pipeline يفشل عند وجود ثغرات
+                    // set --exit-code 1 to fail the pipeline when vulnerabilities are found
                     sh "trivy image --no-progress --severity HIGH,CRITICAL --exit-code 0 ${image}:${tag}"
                 }
             }
