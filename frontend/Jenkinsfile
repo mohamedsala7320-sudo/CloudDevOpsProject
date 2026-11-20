@@ -1,0 +1,6 @@
+@Library('ivolve-shared-lib') _
+
+ivolvePipeline(
+    dir: 'frontend',
+    ecrRepo: 'ivolve-frontend'
+)
