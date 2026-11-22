@@ -819,8 +819,9 @@ unzip -q awscliv2.zip && sudo ./aws/install && aws --version
 The NAT Gateway, the EKS control plane, the EKS nodes, the load balancer and the Jenkins instance are billed per hour. The environment is created for each working session and removed when it is no longer needed. Everything is rebuilt from code, and the state stays in S3.
 
 ```bash
-kubectl delete application ivolve-app -n argocd     # removes the app and the EBS volume
 kubectl delete svc traefik -n traefik               # removes the AWS load balancer before the destroy
+kubectl delete application ivolve-app -n argocd
+kubectl delete namespace ivolve                     # removes the MySQL PVC and its EBS volume
 cd terraform
 terraform destroy -var="admin_cidr=$(curl -s https://checkip.amazonaws.com)/32"
 ```
