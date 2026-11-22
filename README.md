@@ -843,5 +843,5 @@ The `jenkins-ecr` IAM user is not part of Terraform. Delete its access keys when
 
 ## Created by
 
-**Mohamed Salah Shawky**
+**Mohamed Salah Shawky**  
 Junior DevOps Engineer
